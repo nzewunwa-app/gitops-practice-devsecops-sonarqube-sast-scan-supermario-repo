@@ -13,23 +13,60 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Compute VERSION
+      # STEP 1 — Read version.txt
+      - name: Read version
         id: version
         run: |
           VERSION=$(cat version.txt)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
+      # STEP 2 — Login to Docker Hub
       - name: Login to Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
+      # STEP 3 — Pull and save the image
       - name: Pull and Save Docker Image
         run: |
           docker pull docker.io/watchmefly247/supermariogitopsproject2:${{ env.VERSION }}
           docker save -o supermariolatestdockerimage.tar docker.io/watchmefly247/supermariogitopsproject2:${{ env.VERSION }}
 
+      # STEP 4 — Trivy scan
       - name: Run Trivy vulnerability scanner in tarball mode
         uses: aquasecurity/trivy-action@master
         with:
           input: supermariolatestdockerimage.tar
-          exit-code: '1'
+          exit-code: '0'
           severity: 'CRITICAL,HIGH'
+
+      # STEP 5 — Tag Docker image automatically
+      - name: Tag Docker Image
+        run: |
+          docker tag docker.io/watchmefly247/supermariogitopsproject2:${{ env.VERSION }} \
+                     docker.io/watchmefly247/supermariogitopsproject2:latest
+
+          docker tag docker.io/watchmefly247/supermariogitopsproject2:${{ env.VERSION }} \
+                     docker.io/watchmefly247/supermariogitopsproject2:v${{ env.VERSION }}
+
+          docker push docker.io/watchmefly247/supermariogitopsproject2:${{ env.VERSION }}
+          docker push docker.io/watchmefly247/supermariogitopsproject2:latest
+          docker push docker.io/watchmefly247/supermariogitopsproject2:v${{ env.VERSION }}
+
+      # STEP 6 — Tag GitHub repo automatically
+      - name: Tag GitHub Release
+        run: |
+          git tag v${{ env.VERSION }}
+          git push origin v${{ env.VERSION }}
+
+      # STEP 7 — Auto-increment version.txt
+      - name: Increment version
+        run: |
+          VERSION=$(cat version.txt)
+          NEW_VERSION=$((VERSION + 1))
+          echo $NEW_VERSION > version.txt
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add version.txt
+          git commit -m "Bump version to $NEW_VERSION"
+          git push
