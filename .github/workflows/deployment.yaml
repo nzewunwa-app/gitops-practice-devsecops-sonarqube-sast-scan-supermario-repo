@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: supermariogame-container
-          image: watchmefly247/supermariogitopsproject2:latest   # <-- auto‑updated by GitOps
+          image: watchmefly247/supermariogitopsproject2:latest
           ports:
             - containerPort: 8080
 ---
